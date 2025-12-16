@@ -25,15 +25,14 @@
 #include <sys/socket.h>
 #include <stdint.h>
 
-/*
- * Several useful constants
- */
+/* Several useful constants */
 #define MICROTCP_ACK_TIMEOUT_US 200000
 #define MICROTCP_MSS 1400
 #define MICROTCP_RECVBUF_LEN 8192
 #define MICROTCP_WIN_SIZE MICROTCP_RECVBUF_LEN
 #define MICROTCP_INIT_CWND (3 * MICROTCP_MSS)
 #define MICROTCP_INIT_SSTHRESH MICROTCP_WIN_SIZE
+#define MICROTCP_RECVBUFS (2UL * MICROTCP_MSS)
 
 /**
  * Possible states of the microTCP socket
@@ -41,16 +40,30 @@
  * NOTE: You can insert any other possible state
  * for your own convenience
  */
-typedef enum
-{
-  LISTEN,
+typedef enum {
+  LISTEN = 0,
   ESTABLISHED,
   CLOSING_BY_PEER,
   CLOSING_BY_HOST,
   CLOSED,
-  INVALID
+  INVALID,
+  SYN_SENT,
+  SYN_RCVD,
+  BOUND,
+  SYN_ACK_SENT /* might remove later (?) */
 } mircotcp_state_t;
 
+/* TCP Control states */
+typedef enum {
+	CWR = 1 << 7,
+	ECE = 1 << 6,
+	URG = 1 << 5,
+	ACK = 1 << 4,
+	PSH = 1 << 3,
+	RST = 1 << 2,
+	SYN = 1 << 1,
+	FIN = 1,
+} microtcp_control_t;
 
 /**
  * This is the microTCP socket structure. It holds all the necessary
@@ -58,13 +71,14 @@ typedef enum
  *
  * NOTE: Fill free to insert additional fields.
  */
-typedef struct
-{
+typedef struct {
   int sd;                       /**< The underline UDP socket descriptor */
   mircotcp_state_t state;       /**< The state of the microTCP socket */
   size_t init_win_size;         /**< The window size negotiated at the 3-way handshake */
   size_t curr_win_size;         /**< The current window size */
 
+  const struct sockaddr_in *saddr; /**< The source adddress */
+  const struct sockaddr_in *daddr; /**< The destination address */
   uint8_t *recvbuf;             /**< The *receive* buffer of the TCP
                                      connection. It is allocated during the connection establishment and
                                      is freed at the shutdown of the connection. This buffer is used
@@ -75,7 +89,9 @@ typedef struct
   size_t ssthresh;
 
   size_t seq_number;            /**< Keep the state of the sequence number */
+  size_t peer_seq_number;       /**< Sequence number of the peer */
   size_t ack_number;            /**< Keep the state of the ack number */
+  uint16_t control;             /**< Control bits */
   uint64_t packets_send;
   uint64_t packets_received;
   uint64_t packets_lost;
@@ -84,35 +100,36 @@ typedef struct
   uint64_t bytes_lost;
 } microtcp_sock_t;
 
-
 /**
  * microTCP header structure
  * NOTE: DO NOT CHANGE!
  */
-typedef struct
-{
-  uint32_t seq_number;          /**< Sequence number */
-  uint32_t ack_number;          /**< ACK number */
-  uint16_t control;             /**< Control bits (e.g. SYN, ACK, FIN) */
-  uint16_t window;              /**< Window size in bytes */
-  uint32_t data_len;            /**< Data length in bytes (EXCLUDING header) */
-  uint32_t future_use0;         /**< 32-bits for future use */
-  uint32_t future_use1;         /**< 32-bits for future use */
-  uint32_t future_use2;         /**< 32-bits for future use */
-  uint32_t checksum;            /**< CRC-32 checksum, see crc32() in utils folder */
+typedef struct {
+  uint32_t seq_number;     /**< Sequence number */
+  uint32_t ack_number;     /**< ACK number */
+  uint16_t control;        /**< Control bits (e.g. SYN, ACK, FIN) */
+  uint16_t window;         /**< Window size in bytes */
+  uint32_t data_len;       /**< Data length in bytes (EXCLUDING header) */
+  uint32_t future_use0;    /**< 32-bits for future use */
+  uint32_t future_use1;    /**< 32-bits for future use */
+  uint32_t future_use2;    /**< 32-bits for future use */
+  uint32_t checksum;       /**< CRC-32 checksum, see crc32() in utils folder */
 } microtcp_header_t;
 
 
-microtcp_sock_t
-microtcp_socket (int domain, int type, int protocol);
+microtcp_sock_t microtcp_socket (int domain, int type, int protocol);
 
-int
-microtcp_bind (microtcp_sock_t *socket, const struct sockaddr *address,
-               socklen_t address_len);
+int microtcp_bind (
+    microtcp_sock_t *socket,
+    const struct sockaddr *address,
+    socklen_t address_len
+);
 
-int
-microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
-                  socklen_t address_len);
+int microtcp_connect (
+    microtcp_sock_t *socket,
+    const struct sockaddr *address,
+    socklen_t address_len
+);
 
 /**
  * Blocks waiting for a new connection from a remote peer.
@@ -123,19 +140,26 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
  * @return ATTENTION despite the original accept() this function returns
  * 0 on success or -1 on failure
  */
-int
-microtcp_accept (microtcp_sock_t *socket, struct sockaddr *address,
-                 socklen_t address_len);
+int microtcp_accept (
+    microtcp_sock_t *socket,
+    struct sockaddr *address,
+    socklen_t address_len
+);
 
-int
-microtcp_shutdown(microtcp_sock_t *socket, int how);
+int microtcp_shutdown(microtcp_sock_t *socket, int how);
 
-ssize_t
-microtcp_send (microtcp_sock_t *socket, const void *buffer, size_t length,
-               int flags);
+ssize_t microtcp_send(
+    microtcp_sock_t *socket,
+    const void *buffer,
+    size_t length,
+    int flags
+);
 
-ssize_t
-microtcp_recv (microtcp_sock_t *socket, void *buffer, size_t length, int flags);
-
+ssize_t microtcp_recv (
+    microtcp_sock_t *socket,
+    void *buffer,
+    size_t length,
+    int flags
+);
 
 #endif /* LIB_MICROTCP_H_ */
