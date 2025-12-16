@@ -170,7 +170,8 @@ int microtcp_accept(
         return -1;
     }
 
-    microtcp_header_t *rbuf = socket->recvbuf;
+    // new cast
+    microtcp_header_t *rbuf = (microtcp_header_t *)socket->recvbuf;
 
     /* make the SYN+ACK */
     socket->seq_number = microtcp_seq(socket);
