@@ -69,17 +69,14 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    for (int i = 0; i < 5; i++) {
-        printf("%d\n", i);
-        sleep(1);
-    }
+    printf("server accepted the connection\n");
 
     char buffer[4096];
     while(1) {
         if (microtcp_recv(&socket, &buffer, sizeof(buffer), 0) < 0)
             break;
 
-        printf("%s\n", buffer);
+        printf("%s", buffer);
     }
 
 }

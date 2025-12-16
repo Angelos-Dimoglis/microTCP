@@ -77,10 +77,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    for (int i = 0; i < 5; i++) {
-        printf("%d\n", i);
-        sleep(1);
-    }
+    printf("client connected\n");
 
     /*
     char *buffer = "Hello CSD";
@@ -91,11 +88,13 @@ int main(int argc, char **argv) {
     char *buffer = 0;
     size_t size = 0;
     ssize_t read;
-    signal(SIGINT, handle_signal);
+    //signal(SIGINT, handle_signal);
     while(1) {
         read = getline(&buffer, &size, stdin);
 
         microtcp_send(&socket1, buffer, read + 1, 0);
     }
 
+    microtcp_shutdown(&socket1, 0);
+    printf("client shutdown\n");
 }

@@ -1,13 +1,26 @@
 # microTCP
+
+## Introduction
+
 A lightweight TCP implementation using UDP transport layer.
 
-This is the class project for CS-335a (www.csd.uoc.gr/~hy335a/) for the
-Fall 2017 semester.
+* Built for a wide range of battery powered IoT devices
+* Provides reliable communication and data transfer
+
+## Features
+
+* Error correction
+* Retransmission
+* Fast retransmit
+* flow control
+* congestion control
 
 ## Build requirements
+
 To build this project `cmake` is needed.
 
 ## Build instructions
+
 ```bash
 mkdir build
 cd build
